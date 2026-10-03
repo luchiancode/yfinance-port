@@ -1,18 +1,24 @@
 [project]
 name = "yfinance-port"
 version = "0.1.0"
-description = "Add your description here"
+description = "An HTTP API for accessing Yahoo Finance data through yfinance"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     { name = "luchiancode", email = "luchian.ionica@outlook.com" }
 ]
 requires-python = ">=3.13"
 dependencies = [
     "fastapi[standard]>=0.142.2",
+    "yfinance==1.7.0",
 ]
 
 [project.scripts]
-yfinance-port = "yfinance_port:main"
+yfinance-port = "yfinance_port.api:main"
+
+[tool.fastapi]
+entrypoint = "yfinance_port.api:app"
 
 [build-system]
 requires = ["uv_build>=0.12.5,<0.13.0"]

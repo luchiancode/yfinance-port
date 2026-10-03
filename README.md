@@ -1,0 +1,1 @@
+Expose yfinance through a lightweight HTTP API so projects in any language can access Yahoo Finance data.
