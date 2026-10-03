@@ -20,7 +20,15 @@ app = FastAPI(
 )
 
 
-@app.get("/tickers", summary="Get basic information for multiple tickers")
+@app.get(
+    "/tickers",
+    summary="Get basic information for multiple tickers",
+    description=(
+        "Returns the latest available regular-market price with priceTime as an ISO 8601 UTC "
+        "source timestamp. priceTime is null if Yahoo provides no matching timestamp, "
+        "including when price falls back to currentPrice."
+    ),
+)
 def get_tickers(
     symbols: Annotated[
         str,
@@ -50,6 +58,7 @@ def get_tickers(
     description=(
         "Paginate stocks, ETFs and mutual funds across yfinance-supported exchanges. "
         "Ordered by size descending: market cap for stocks and crypto, net assets for funds. "
+        "Records include Yahoo-native exchange and currency codes when available. "
         "Crypto uses Yahoo's predefined USD screener; only its first page is available, "
         "with truncated=true when more results exist. Futures, commodities, currencies "
         "and indices are not enumerated."

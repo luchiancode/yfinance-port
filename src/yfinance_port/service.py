@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from enum import StrEnum
 
 import yfinance as yf
@@ -10,6 +11,11 @@ class TickerInfo(BaseModel):
     exchange: str | None = None
     currency: str | None = None
     price: float | None = None
+    price_time: datetime | None = Field(
+        default=None,
+        serialization_alias="priceTime",
+        description="UTC source timestamp for the regular-market price; null if unavailable.",
+    )
 
 
 class CatalogueAssetClass(StrEnum):
@@ -24,6 +30,8 @@ class CatalogueTicker(BaseModel):
     name: str | None = None
     asset_class: str = Field(serialization_alias="assetClass")
     aliases: list[str] = Field(default_factory=list)
+    exchange: str | None = Field(default=None, description="Yahoo's exchange identifier, not a MIC code.")
+    currency: str | None = Field(default=None, description="Yahoo's currency or price-unit code.")
 
 
 class CataloguePage(BaseModel):
@@ -87,6 +95,8 @@ def get_ticker_catalogue(
             name=name,
             asset_class=(quote.get("quoteType") or asset_class.value).upper(),
             aliases=aliases,
+            exchange=quote.get("exchange"),
+            currency=quote.get("currency"),
         ))
 
     next_offset = offset + len(quotes)
@@ -110,6 +120,7 @@ def get_tickers_info(symbols: list[str]) -> dict[str, TickerInfo]:
             raise TickerNotFoundError(symbol)
 
         price = info.get("regularMarketPrice")
+        price_timestamp = info.get("regularMarketTime") if price is not None else None
         if price is None:
             price = info.get("currentPrice")
         result[symbol] = TickerInfo(
@@ -118,5 +129,6 @@ def get_tickers_info(symbols: list[str]) -> dict[str, TickerInfo]:
             exchange=info.get("fullExchangeName") or info.get("exchange"),
             currency=info.get("currency"),
             price=price,
+            price_time=datetime.fromtimestamp(price_timestamp, UTC) if price_timestamp is not None else None,
         )
     return result
