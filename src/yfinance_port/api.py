@@ -1,8 +1,13 @@
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Annotated
 
 import uvicorn
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from fastapi.responses import JSONResponse
 from pydantic import StringConstraints
+from sqlalchemy.exc import SQLAlchemyError
+from starlette.concurrency import run_in_threadpool
 from yfinance.exceptions import YFRateLimitError
 
 from .service import (
@@ -13,11 +18,37 @@ from .service import (
     get_ticker_catalogue,
     get_tickers_info,
 )
+from .storage import PostgresStore, create_store
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    store = await run_in_threadpool(create_store)
+    app.state.store = store
+    try:
+        yield
+    finally:
+        if store is not None:
+            await run_in_threadpool(store.close)
+
 
 app = FastAPI(
     title="yfinance-port",
     description="An HTTP API for accessing Yahoo Finance data through yfinance.",
+    lifespan=lifespan,
 )
+
+
+def get_store(request: Request) -> PostgresStore | None:
+    return request.app.state.store
+
+
+StoreDep = Annotated[PostgresStore | None, Depends(get_store)]
+
+
+@app.exception_handler(SQLAlchemyError)
+def persistence_error_handler(_request: Request, _exc: SQLAlchemyError) -> JSONResponse:
+    return JSONResponse(status_code=503, content={"detail": "Unable to persist data in PostgreSQL."})
 
 
 @app.get(
@@ -35,13 +66,14 @@ def get_tickers(
         StringConstraints(strip_whitespace=True, min_length=1, max_length=500),
         Query(description="Comma- or space-separated ticker symbols, for example MSFT,AAPL,GOOG"),
     ],
+    store: StoreDep,
 ) -> dict[str, TickerInfo]:
     symbol_list = list(dict.fromkeys(symbols.replace(",", " ").upper().split()))
     if not 1 <= len(symbol_list) <= 20:
         raise HTTPException(status_code=422, detail="Specify between 1 and 20 ticker symbols.")
 
     try:
-        return get_tickers_info(symbol_list)
+        result = get_tickers_info(symbol_list)
     except TickerNotFoundError as exc:
         raise HTTPException(status_code=404, detail=f"No data found for ticker {exc}.") from exc
     except YFRateLimitError as exc:
@@ -50,6 +82,10 @@ def get_tickers(
         ) from exc
     except Exception as exc:
         raise HTTPException(status_code=502, detail="Unable to fetch data from Yahoo Finance.") from exc
+
+    if store is not None:
+        store.save_prices(result.values())
+    return result
 
 
 @app.get(
@@ -65,6 +101,7 @@ def get_tickers(
     ),
 )
 def get_catalogue(
+    store: StoreDep,
     asset_class: Annotated[
         CatalogueAssetClass, Query(alias="assetClass", description="Yahoo instrument type"),
     ] = CatalogueAssetClass.EQUITY,
@@ -76,13 +113,17 @@ def get_catalogue(
             status_code=422, detail="yfinance only supports offset 0 for the crypto screener."
         )
     try:
-        return get_ticker_catalogue(asset_class, offset=offset, limit=limit)
+        result = get_ticker_catalogue(asset_class, offset=offset, limit=limit)
     except YFRateLimitError as exc:
         raise HTTPException(
             status_code=503, detail="Yahoo Finance rate limit reached. Try again later."
         ) from exc
     except Exception as exc:
         raise HTTPException(status_code=502, detail="Unable to fetch the Yahoo Finance catalogue.") from exc
+
+    if store is not None:
+        store.save_catalogue(result.items)
+    return result
 
 
 def main() -> None:
