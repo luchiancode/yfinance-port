@@ -3,21 +3,15 @@ from contextlib import asynccontextmanager
 from typing import Annotated
 
 import uvicorn
-from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from fastapi import Body, Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import StringConstraints
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.concurrency import run_in_threadpool
 from yfinance.exceptions import YFRateLimitError
 
-from .service import (
-    CatalogueAssetClass,
-    CataloguePage,
-    TickerInfo,
-    TickerNotFoundError,
-    get_ticker_catalogue,
-    get_tickers_info,
-)
+from .models import CatalogueAssetClass, CataloguePage, TickerInfo
+from .service import TickerNotFoundError, get_ticker_catalogue, get_tickers_info
 from .storage import PostgresStore, create_store
 
 
@@ -51,26 +45,25 @@ def persistence_error_handler(_request: Request, _exc: SQLAlchemyError) -> JSONR
     return JSONResponse(status_code=503, content={"detail": "Unable to persist data in PostgreSQL."})
 
 
-@app.get(
+@app.post(
     "/tickers",
     summary="Get basic information for multiple tickers",
     description=(
-        "Returns the latest available regular-market price with priceTime as an ISO 8601 UTC "
-        "source timestamp. priceTime is null if Yahoo provides no matching timestamp, "
-        "including when price falls back to currentPrice."
+        "Accepts a JSON array of ticker symbols. Returns the latest available regular-market "
+        "price with priceTime as an ISO 8601 UTC source timestamp. priceTime is null if Yahoo "
+        "provides no matching timestamp, including when price falls back to currentPrice."
     ),
 )
 def get_tickers(
     symbols: Annotated[
-        str,
-        StringConstraints(strip_whitespace=True, min_length=1, max_length=500),
-        Query(description="Comma- or space-separated ticker symbols, for example MSFT,AAPL,GOOG"),
+        list[Annotated[str, StringConstraints(
+            strip_whitespace=True, min_length=1, max_length=500, pattern=r"^[^\s,]+$",
+        )]],
+        Body(min_length=1, max_length=20, description="Ticker symbols", examples=[["MSFT", "AAPL", "GOOG"]]),
     ],
     store: StoreDep,
 ) -> dict[str, TickerInfo]:
-    symbol_list = list(dict.fromkeys(symbols.replace(",", " ").upper().split()))
-    if not 1 <= len(symbol_list) <= 20:
-        raise HTTPException(status_code=422, detail="Specify between 1 and 20 ticker symbols.")
+    symbol_list = list(dict.fromkeys(symbol.upper() for symbol in symbols))
 
     try:
         result = get_tickers_info(symbol_list)

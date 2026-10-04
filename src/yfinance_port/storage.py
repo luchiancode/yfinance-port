@@ -8,7 +8,7 @@ from sqlalchemy.dialects.postgresql import JSONB, insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Field, Session, SQLModel, create_engine
 
-from .service import CatalogueTicker, TickerInfo
+from .models import CatalogueTicker, TickerInfo
 
 
 class CatalogueAsset(SQLModel, table=True):
