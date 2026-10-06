@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 import yfinance as yf
 
 from .models import CatalogueAssetClass, CataloguePage, CatalogueTicker, TickerInfo
+from .storage import PostgresStore
 
 
 class TickerNotFoundError(LookupError):
@@ -11,6 +12,7 @@ class TickerNotFoundError(LookupError):
 
 def get_ticker_catalogue(
     asset_class: CatalogueAssetClass, offset: int = 0, limit: int = 250,
+    store: PostgresStore | None = None,
 ) -> CataloguePage:
     sort_field = "intradaymarketcap" if asset_class in (
         CatalogueAssetClass.EQUITY, CatalogueAssetClass.CRYPTOCURRENCY,
@@ -65,16 +67,21 @@ def get_ticker_catalogue(
     next_offset = offset + len(quotes)
     has_more = next_offset < total
     truncated = asset_class == CatalogueAssetClass.CRYPTOCURRENCY and has_more
-    return CataloguePage(
+    page = CataloguePage(
         items=items,
         total=total,
         offset=offset,
         next_offset=next_offset if has_more and not truncated else None,
         truncated=truncated,
     )
+    if store is not None:
+        store.save_catalogue(page.items)
+    return page
 
 
-def get_tickers_info(symbols: list[str]) -> dict[str, TickerInfo]:
+def get_tickers_info(
+    symbols: list[str], store: PostgresStore | None = None,
+) -> dict[str, TickerInfo]:
     tickers = yf.Tickers(symbols)
     result = {}
     for symbol, ticker in tickers.tickers.items():
@@ -94,4 +101,6 @@ def get_tickers_info(symbols: list[str]) -> dict[str, TickerInfo]:
             price=price,
             price_time=datetime.fromtimestamp(price_timestamp, UTC) if price_timestamp is not None else None,
         )
+    if store is not None:
+        store.save_prices(result.values())
     return result

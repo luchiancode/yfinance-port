@@ -66,19 +66,17 @@ def get_tickers(
     symbol_list = list(dict.fromkeys(symbol.upper() for symbol in symbols))
 
     try:
-        result = get_tickers_info(symbol_list)
+        return get_tickers_info(symbol_list, store)
     except TickerNotFoundError as exc:
         raise HTTPException(status_code=404, detail=f"No data found for ticker {exc}.") from exc
     except YFRateLimitError as exc:
         raise HTTPException(
             status_code=503, detail="Yahoo Finance rate limit reached. Try again later."
         ) from exc
+    except SQLAlchemyError:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=502, detail="Unable to fetch data from Yahoo Finance.") from exc
-
-    if store is not None:
-        store.save_prices(result.values())
-    return result
 
 
 @app.get(
@@ -106,17 +104,15 @@ def get_catalogue(
             status_code=422, detail="yfinance only supports offset 0 for the crypto screener."
         )
     try:
-        result = get_ticker_catalogue(asset_class, offset=offset, limit=limit)
+        return get_ticker_catalogue(asset_class, offset=offset, limit=limit, store=store)
     except YFRateLimitError as exc:
         raise HTTPException(
             status_code=503, detail="Yahoo Finance rate limit reached. Try again later."
         ) from exc
+    except SQLAlchemyError:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=502, detail="Unable to fetch the Yahoo Finance catalogue.") from exc
-
-    if store is not None:
-        store.save_catalogue(result.items)
-    return result
 
 
 def main() -> None:
