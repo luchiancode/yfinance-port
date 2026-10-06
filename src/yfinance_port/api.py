@@ -5,7 +5,6 @@ from typing import Annotated
 import uvicorn
 from fastapi import Body, Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
-from pydantic import StringConstraints
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.concurrency import run_in_threadpool
 from yfinance.exceptions import YFRateLimitError
@@ -13,6 +12,7 @@ from yfinance.exceptions import YFRateLimitError
 from .models import InstrumentClass, InstrumentPage, TickerInfo
 from .service import TickerNotFoundError, get_instruments, get_tickers_info
 from .storage import PostgresStore, create_store
+from .validation import TickerSymbol
 
 
 @asynccontextmanager
@@ -54,9 +54,7 @@ def persistence_error_handler(_request: Request, _exc: SQLAlchemyError) -> JSONR
 )
 def get_tickers(
     symbols: Annotated[
-        list[Annotated[str, StringConstraints(
-            strip_whitespace=True, min_length=1, max_length=500, pattern=r"^[^\s,]+$",
-        )]],
+        list[TickerSymbol],
         Body(min_length=1, max_length=20, description="Ticker symbols", examples=[["MSFT", "AAPL", "GOOG"]]),
     ],
     store: StoreDep,
