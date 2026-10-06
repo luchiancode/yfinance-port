@@ -10,8 +10,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from starlette.concurrency import run_in_threadpool
 from yfinance.exceptions import YFRateLimitError
 
-from .models import CatalogueAssetClass, CataloguePage, TickerInfo
-from .service import TickerNotFoundError, get_ticker_catalogue, get_tickers_info
+from .models import InstrumentClass, InstrumentPage, TickerInfo
+from .service import TickerNotFoundError, get_instruments, get_tickers_info
 from .storage import PostgresStore, create_store
 
 
@@ -78,23 +78,23 @@ def get_tickers(
 
 
 @app.get(
-    "/tickers/catalogue",
-    summary="List ticker catalogue entries for database seeding",
+    "/instruments",
+    summary="List instruments for database seeding",
     description=(
         "Paginate stocks, ETFs and mutual funds across yfinance-supported exchanges. "
         "Ordered by size descending: market cap for stocks, net assets for funds. "
     ),
 )
-def get_catalogue(
+def list_instruments(
     store: StoreDep,
     asset_class: Annotated[
-        CatalogueAssetClass, Query(alias="assetClass", description="Yahoo instrument type"),
-    ] = CatalogueAssetClass.EQUITY,
+        InstrumentClass, Query(alias="assetClass", description="Yahoo instrument type"),
+    ] = InstrumentClass.EQUITY,
     offset: Annotated[int, Query(ge=0, description="Result offset; follow nextOffset")] = 0,
     limit: Annotated[int, Query(ge=1, le=250, description="Maximum number of results")] = 250,
-) -> CataloguePage:
+) -> InstrumentPage:
     try:
-        return get_ticker_catalogue(asset_class, offset=offset, limit=limit, store=store)
+        return get_instruments(asset_class, offset=offset, limit=limit, store=store)
     except YFRateLimitError as exc:
         raise HTTPException(
             status_code=503, detail="Yahoo Finance rate limit reached. Try again later."
@@ -102,7 +102,7 @@ def get_catalogue(
     except SQLAlchemyError:
         raise
     except Exception as exc:
-        raise HTTPException(status_code=502, detail="Unable to fetch the Yahoo Finance catalogue.") from exc
+        raise HTTPException(status_code=502, detail="Unable to fetch instruments from Yahoo Finance.") from exc
 
 
 def main() -> None:

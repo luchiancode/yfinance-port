@@ -17,23 +17,24 @@ class TickerInfo(BaseModel):
     )
 
 
-class CatalogueAssetClass(StrEnum):
+class InstrumentClass(StrEnum):
     EQUITY = "EQUITY"
     ETF = "ETF"
     MUTUALFUND = "MUTUALFUND"
 
 
-class CatalogueTicker(BaseModel):
+class Instrument(BaseModel):
     symbol: str
     name: str | None = None
     asset_class: str = Field(serialization_alias="assetClass")
     aliases: list[str] = Field(default_factory=list)
     exchange: str | None = Field(default=None, description="Yahoo's exchange identifier, not a MIC code.")
     currency: str | None = Field(default=None, description="Yahoo's currency or price-unit code.")
+    size: float | None = Field(default=None, exclude=True)
 
 
-class CataloguePage(BaseModel):
-    items: list[CatalogueTicker]
+class InstrumentPage(BaseModel):
+    items: list[Instrument]
     total: int
     offset: int
     next_offset: int | None = Field(serialization_alias="nextOffset")
