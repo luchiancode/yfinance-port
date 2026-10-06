@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 import yfinance as yf
 
 from .models import CatalogueAssetClass, CataloguePage, CatalogueTicker, TickerInfo
+from .persistence import save_catalogue, save_prices
 from .storage import PostgresStore
 
 
@@ -14,32 +15,23 @@ def get_ticker_catalogue(
     asset_class: CatalogueAssetClass, offset: int = 0, limit: int = 250,
     store: PostgresStore | None = None,
 ) -> CataloguePage:
-    sort_field = "intradaymarketcap" if asset_class in (
-        CatalogueAssetClass.EQUITY, CatalogueAssetClass.CRYPTOCURRENCY,
-    ) else "fundnetassets"
+    sort_field = "intradaymarketcap" if asset_class == CatalogueAssetClass.EQUITY else "fundnetassets"
 
-    if asset_class == CatalogueAssetClass.CRYPTOCURRENCY:
-        if offset != 0:
-            raise ValueError("yfinance cannot paginate the predefined crypto screener.")
-        response = yf.screen(
-            "all_cryptocurrencies_us", count=limit, sortField=sort_field, sortAsc=False,
-        )
-    else:
-        query_type = {
-            CatalogueAssetClass.EQUITY: yf.EquityQuery,
-            CatalogueAssetClass.ETF: yf.ETFQuery,
-            CatalogueAssetClass.MUTUALFUND: yf.FundQuery,
-        }[asset_class]
-        template = query_type("gte", ["intradayprice", 0])
-        exchanges = sorted({
-            exchange
-            for group in template.valid_values["exchange"].values()
-            for exchange in group if exchange
-        })
-        query = query_type("is-in", ["exchange", *exchanges])
-        response = yf.screen(
-            query, offset=offset, size=limit, sortField=sort_field, sortAsc=False,
-        )
+    query_type = {
+        CatalogueAssetClass.EQUITY: yf.EquityQuery,
+        CatalogueAssetClass.ETF: yf.ETFQuery,
+        CatalogueAssetClass.MUTUALFUND: yf.FundQuery,
+    }[asset_class]
+    template = query_type("gte", ["intradayprice", 0])
+    exchanges = sorted({
+        exchange
+        for group in template.valid_values["exchange"].values()
+        for exchange in group if exchange
+    })
+    query = query_type("is-in", ["exchange", *exchanges])
+    response = yf.screen(
+        query, offset=offset, size=limit, sortField=sort_field, sortAsc=False,
+    )
 
     quotes = response["quotes"]
     total = response["total"]
@@ -65,17 +57,14 @@ def get_ticker_catalogue(
         ))
 
     next_offset = offset + len(quotes)
-    has_more = next_offset < total
-    truncated = asset_class == CatalogueAssetClass.CRYPTOCURRENCY and has_more
     page = CataloguePage(
         items=items,
         total=total,
         offset=offset,
-        next_offset=next_offset if has_more and not truncated else None,
-        truncated=truncated,
+        next_offset=next_offset if next_offset < total else None,
     )
     if store is not None:
-        store.save_catalogue(page.items)
+        save_catalogue(store, page.items)
     return page
 
 
@@ -102,5 +91,5 @@ def get_tickers_info(
             price_time=datetime.fromtimestamp(price_timestamp, UTC) if price_timestamp is not None else None,
         )
     if store is not None:
-        store.save_prices(result.values())
+        save_prices(store, result.values())
     return result

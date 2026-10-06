@@ -50,8 +50,6 @@ def persistence_error_handler(_request: Request, _exc: SQLAlchemyError) -> JSONR
     summary="Get basic information for multiple tickers",
     description=(
         "Accepts a JSON array of ticker symbols. Returns the latest available regular-market "
-        "price with priceTime as an ISO 8601 UTC source timestamp. priceTime is null if Yahoo "
-        "provides no matching timestamp, including when price falls back to currentPrice."
     ),
 )
 def get_tickers(
@@ -84,11 +82,7 @@ def get_tickers(
     summary="List ticker catalogue entries for database seeding",
     description=(
         "Paginate stocks, ETFs and mutual funds across yfinance-supported exchanges. "
-        "Ordered by size descending: market cap for stocks and crypto, net assets for funds. "
-        "Records include Yahoo-native exchange and currency codes when available. "
-        "Crypto uses Yahoo's predefined USD screener; only its first page is available, "
-        "with truncated=true when more results exist. Futures, commodities, currencies "
-        "and indices are not enumerated."
+        "Ordered by size descending: market cap for stocks, net assets for funds. "
     ),
 )
 def get_catalogue(
@@ -99,10 +93,6 @@ def get_catalogue(
     offset: Annotated[int, Query(ge=0, description="Result offset; follow nextOffset")] = 0,
     limit: Annotated[int, Query(ge=1, le=250, description="Maximum number of results")] = 250,
 ) -> CataloguePage:
-    if asset_class == CatalogueAssetClass.CRYPTOCURRENCY and offset != 0:
-        raise HTTPException(
-            status_code=422, detail="yfinance only supports offset 0 for the crypto screener."
-        )
     try:
         return get_ticker_catalogue(asset_class, offset=offset, limit=limit, store=store)
     except YFRateLimitError as exc:

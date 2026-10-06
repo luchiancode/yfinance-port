@@ -21,7 +21,6 @@ class CatalogueAssetClass(StrEnum):
     EQUITY = "EQUITY"
     ETF = "ETF"
     MUTUALFUND = "MUTUALFUND"
-    CRYPTOCURRENCY = "CRYPTOCURRENCY"
 
 
 class CatalogueTicker(BaseModel):
@@ -38,4 +37,3 @@ class CataloguePage(BaseModel):
     total: int
     offset: int
     next_offset: int | None = Field(serialization_alias="nextOffset")
-    truncated: bool = False

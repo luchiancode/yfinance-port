@@ -1,14 +1,11 @@
 import os
-from collections.abc import Iterable
 from datetime import UTC, datetime
 
 from dotenv import load_dotenv
 from sqlalchemy import DateTime, Engine, URL
-from sqlalchemy.dialects.postgresql import JSONB, insert
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import SQLAlchemyError
-from sqlmodel import Field, Session, SQLModel, create_engine
-
-from .models import CatalogueTicker, TickerInfo
+from sqlmodel import Field, SQLModel, create_engine
 
 
 class CatalogueAsset(SQLModel, table=True):
@@ -44,31 +41,6 @@ class PostgresStore:
     def __init__(self, engine: Engine):
         self.engine = engine
 
-    def save_catalogue(self, items: Iterable[CatalogueTicker]) -> None:
-        updated_at = datetime.now(UTC)
-        rows = {
-            item.symbol: {**item.model_dump(), "updated_at": updated_at}
-            for item in items
-        }
-        if not rows:
-            return
-        statement = insert(CatalogueAsset).values(list(rows.values()))
-        statement = statement.on_conflict_do_update(
-            index_elements=[CatalogueAsset.symbol],
-            set_={key: statement.excluded[key] for key in next(iter(rows.values())) if key != "symbol"},
-        )
-        with Session(self.engine) as session:
-            session.execute(statement)
-            session.commit()
-
-    def save_prices(self, records: Iterable[TickerInfo]) -> None:
-        snapshots = [PriceSnapshot(**record.model_dump()) for record in records]
-        if not snapshots:
-            return
-        with Session(self.engine) as session:
-            session.add_all(snapshots)
-            session.commit()
-
     def close(self) -> None:
         self.engine.dispose()
 
@@ -89,7 +61,7 @@ def create_store() -> PostgresStore | None:
         username=os.getenv("POSTGRES_USER", "yfinance_port"),
         password=password,
         host=os.getenv("POSTGRES_HOST", "127.0.0.1"),
-        port=int(os.getenv("POSTGRES_PORT", "5432")),
+        port=int(os.getenv("POSTGRES_PORT", "1005")),
         database=os.getenv("POSTGRES_DB", "yfinance_port"),
     )
     engine = create_engine(url, pool_pre_ping=True, connect_args={"connect_timeout": 5})
