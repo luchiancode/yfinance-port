@@ -28,7 +28,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(
     title="yfinance-port",
-    description="An HTTP API for accessing Yahoo Finance data through yfinance.",
+    description="An HTTP API for accessing yfinance data.",
     lifespan=lifespan,
 )
 
@@ -69,12 +69,12 @@ def get_tickers(
         raise HTTPException(status_code=404, detail=f"No data found for ticker {exc}.") from exc
     except YFRateLimitError as exc:
         raise HTTPException(
-            status_code=503, detail="Yahoo Finance rate limit reached. Try again later."
+            status_code=503, detail="Upstream rate limit reached. Try again later."
         ) from exc
     except SQLAlchemyError:
         raise
     except Exception as exc:
-        raise HTTPException(status_code=502, detail="Unable to fetch data from Yahoo Finance.") from exc
+        raise HTTPException(status_code=502, detail="Unable to fetch ticker data.") from exc
 
 
 @app.get(
@@ -88,7 +88,7 @@ def get_tickers(
 def list_instruments(
     store: StoreDep,
     asset_class: Annotated[
-        InstrumentClass, Query(alias="assetClass", description="Yahoo instrument type"),
+        InstrumentClass, Query(alias="assetClass", description="Instrument type"),
     ] = InstrumentClass.EQUITY,
     offset: Annotated[int, Query(ge=0, description="Result offset; follow nextOffset")] = 0,
     limit: Annotated[int, Query(ge=1, le=250, description="Maximum number of results")] = 250,
@@ -97,12 +97,12 @@ def list_instruments(
         return get_instruments(asset_class, offset=offset, limit=limit, store=store)
     except YFRateLimitError as exc:
         raise HTTPException(
-            status_code=503, detail="Yahoo Finance rate limit reached. Try again later."
+            status_code=503, detail="Upstream rate limit reached. Try again later."
         ) from exc
     except SQLAlchemyError:
         raise
     except Exception as exc:
-        raise HTTPException(status_code=502, detail="Unable to fetch instruments from Yahoo Finance.") from exc
+        raise HTTPException(status_code=502, detail="Unable to fetch instruments.") from exc
 
 
 def main() -> None:

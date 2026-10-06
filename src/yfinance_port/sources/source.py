@@ -1,0 +1,6 @@
+from typing import Protocol
+
+
+class Source[T](Protocol):
+    def get_from_db(self) -> T | None: ...
+    def get_from_yfinance(self) -> T: ...

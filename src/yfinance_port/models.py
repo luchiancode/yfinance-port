@@ -28,8 +28,8 @@ class Instrument(BaseModel):
     name: str | None = None
     asset_class: str = Field(serialization_alias="assetClass")
     aliases: list[str] = Field(default_factory=list)
-    exchange: str | None = Field(default=None, description="Yahoo's exchange identifier, not a MIC code.")
-    currency: str | None = Field(default=None, description="Yahoo's currency or price-unit code.")
+    exchange: str | None = Field(default=None, description="Exchange identifier, not a MIC code.")
+    currency: str | None = Field(default=None, description="Currency or price-unit code.")
     size: float | None = Field(default=None, exclude=True)
 
 
