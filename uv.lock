@@ -2219,7 +2219,7 @@ wheels = [
 ]
 
 [[package]]
-name = "yfinance-port"
+name = "yfinance-rest-mcp"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

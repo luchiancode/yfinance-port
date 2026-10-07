@@ -27,7 +27,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(
-    title="yfinance-port",
+    title="yfinance-rest-mcp",
     description="An HTTP API for accessing yfinance data.",
     lifespan=lifespan,
 )
@@ -104,4 +104,4 @@ def list_instruments(
 
 
 def main() -> None:
-    uvicorn.run("yfinance_port.api:app", host="127.0.0.1", port=8000)
+    uvicorn.run("yfinance_rest_mcp.api:app", host="127.0.0.1", port=8000)

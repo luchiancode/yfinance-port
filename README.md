@@ -1,4 +1,4 @@
-# yfinance-port
+# yfinance-rest-and-mcp
 
 A self-hosted REST and MCP service built on yfinance, so projects and AI tools in any language can access Yahoo Finance data and optionally persist what they retrieve.
 
@@ -6,7 +6,7 @@ A self-hosted REST and MCP service built on yfinance, so projects and AI tools i
 
 ```bash
 uv sync
-uv run yfinance-port
+uv run yfinance-rest
 ```
 
 Settings are read from `.env` on startup. API documentation is available at `http://127.0.0.1:8000/docs`.
@@ -14,7 +14,7 @@ Settings are read from `.env` on startup. API documentation is available at `htt
 ## Run the MCP server
 
 ```bash
-uv run yfinance-port-mcp
+uv run yfinance-mcp
 ```
 
 A stdio MCP server backed by the same service logic; the REST API does not need to be running.
@@ -24,16 +24,16 @@ Example MCP client configuration:
 ```json
 {
   "mcpServers": {
-    "yfinance-port": {
+    "yfinance-rest-mcp": {
       "command": "uv",
-      "args": ["--directory", "/absolute/path/to/yfinance-port", "run", "yfinance-port-mcp"],
+      "args": ["--directory", "/absolute/path/to/yfinance-rest-and-mcp", "run", "yfinance-mcp"],
       "env": { "PERSIST_DATA": "false" }
     }
   }
 }
 ```
 
-Replace `/absolute/path/to/yfinance-port` with the project path, and point `command` at the absolute `uv` executable if the client cannot find `uv` on its `PATH`. Remove the `env` override to use the project `.env` settings instead.
+Replace `/absolute/path/to/yfinance-rest-and-mcp` with the project path, and point `command` at the absolute `uv` executable if the client cannot find `uv` on its `PATH`. Remove the `env` override to use the project `.env` settings instead.
 
 ## PostgreSQL persistence
 
@@ -41,7 +41,7 @@ Persistence is disabled by default. To enable it, set `PERSIST_DATA=true` and ad
 
 ```bash
 docker compose up -d --wait db
-uv run yfinance-port
+uv run yfinance-rest
 ```
 
 Tables are created automatically on startup. Instrument records are updated by symbol, while each ticker-info fetch adds a price snapshot with its source time and recording time. Only requested data is stored; responses still come from yfinance, not from the database.

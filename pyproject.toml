@@ -1,5 +1,5 @@
 [project]
-name = "yfinance-port"
+name = "yfinance-rest-mcp"
 version = "0.1.0"
 description = "An HTTP API for accessing Yahoo Finance data through yfinance"
 readme = "README.md"
@@ -19,11 +19,11 @@ dependencies = [
 ]
 
 [project.scripts]
-yfinance-port = "yfinance_port.api:main"
-yfinance-port-mcp = "yfinance_port.mcp:main"
+yfinance-rest = "yfinance_rest_mcp.api:main"
+yfinance-mcp = "yfinance_rest_mcp.mcp:main"
 
 [tool.fastapi]
-entrypoint = "yfinance_port.api:app"
+entrypoint = "yfinance_rest_mcp.api:app"
 
 [build-system]
 requires = ["uv_build>=0.12.5,<0.13.0"]

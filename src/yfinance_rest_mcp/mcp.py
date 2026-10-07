@@ -31,7 +31,7 @@ async def lifespan(_server: MCPServer) -> AsyncIterator[MCPState]:
             await run_in_threadpool(store.close)
 
 
-server = MCPServer("yfinance-port", lifespan=lifespan)
+server = MCPServer("yfinance-rest-mcp", lifespan=lifespan)
 
 
 @server.tool(
