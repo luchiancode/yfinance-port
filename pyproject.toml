@@ -11,6 +11,7 @@ authors = [
 requires-python = ">=3.13"
 dependencies = [
     "fastapi[standard]>=0.142.2",
+    "mcp==2.2.0",
     "psycopg[binary]==3.3.6",
     "python-dotenv==1.2.3",
     "sqlmodel==0.0.47",
@@ -19,6 +20,7 @@ dependencies = [
 
 [project.scripts]
 yfinance-port = "yfinance_port.api:main"
+yfinance-port-mcp = "yfinance_port.mcp:main"
 
 [tool.fastapi]
 entrypoint = "yfinance_port.api:app"

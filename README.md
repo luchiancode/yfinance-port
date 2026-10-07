@@ -1,8 +1,8 @@
 # yfinance-port
 
-A self-hosted REST service built on yfinance, so projects in any language can access Yahoo Finance data and optionally persist what they retrieve.
+A self-hosted REST and MCP service built on yfinance, so projects and AI tools in any language can access Yahoo Finance data and optionally persist what they retrieve.
 
-## Run
+## Run the REST API
 
 ```bash
 uv sync
@@ -10,6 +10,30 @@ uv run yfinance-port
 ```
 
 Settings are read from `.env` on startup. API documentation is available at `http://127.0.0.1:8000/docs`.
+
+## Run the MCP server
+
+```bash
+uv run yfinance-port-mcp
+```
+
+A stdio MCP server backed by the same service logic; the REST API does not need to be running.
+
+Example MCP client configuration:
+
+```json
+{
+  "mcpServers": {
+    "yfinance-port": {
+      "command": "uv",
+      "args": ["--directory", "/absolute/path/to/yfinance-port", "run", "yfinance-port-mcp"],
+      "env": { "PERSIST_DATA": "false" }
+    }
+  }
+}
+```
+
+Replace `/absolute/path/to/yfinance-port` with the project path, and point `command` at the absolute `uv` executable if the client cannot find `uv` on its `PATH`. Remove the `env` override to use the project `.env` settings instead.
 
 ## PostgreSQL persistence
 
