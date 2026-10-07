@@ -5,7 +5,7 @@ from sqlalchemy import Engine, URL
 from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import SQLModel, create_engine
 
-from .db.tables import Instrument, PriceSnapshot
+from .tables import Instrument, PriceSnapshot
 
 
 class PostgresStore:

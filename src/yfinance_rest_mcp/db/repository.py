@@ -6,7 +6,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlmodel import Session, select
 
 from ..models import Instrument, TickerInfo
-from ..storage import PostgresStore
+from .storage import PostgresStore
 from .tables import Instrument as InstrumentTable, PriceSnapshot
 
 

@@ -2,7 +2,7 @@ import yfinance as yf
 
 from ..models import Instrument, InstrumentClass, InstrumentPage
 from ..db.repository import instruments_page
-from ..storage import PostgresStore
+from ..db.storage import PostgresStore
 from .source import Source
 
 

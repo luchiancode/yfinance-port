@@ -5,7 +5,7 @@ from .db.repository import save_instruments, save_price
 from .sources.instrument_source import InstrumentSource
 from .sources.source import Source
 from .sources.ticker_info_source import TickerInfoSource, TickerNotFoundError
-from .storage import PostgresStore
+from .db.storage import PostgresStore
 
 __all__ = [
     "PRICE_TTL",

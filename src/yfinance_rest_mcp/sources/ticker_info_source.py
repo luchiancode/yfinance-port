@@ -4,7 +4,7 @@ import yfinance as yf
 
 from ..models import TickerInfo
 from ..db.repository import latest_price
-from ..storage import PostgresStore
+from ..db.storage import PostgresStore
 from .source import Source
 
 

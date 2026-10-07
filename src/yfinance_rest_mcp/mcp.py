@@ -12,7 +12,7 @@ from yfinance.exceptions import YFRateLimitError
 
 from .models import TickerInfo
 from .service import TickerNotFoundError, get_tickers_info
-from .storage import PostgresStore, create_store
+from .db.storage import PostgresStore, create_store
 from .validation import TickerSymbol
 
 
