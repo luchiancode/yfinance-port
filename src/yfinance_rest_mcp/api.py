@@ -46,9 +46,19 @@ def get_store(request: Request) -> PostgresStore | None:
 StoreDep = Annotated[PostgresStore | None, Depends(get_store)]
 
 
+@app.exception_handler(YFRateLimitError)
+def rate_limit_handler(_request: Request, _exc: YFRateLimitError) -> JSONResponse:
+    return JSONResponse(status_code=503, content={"detail": "Upstream rate limit reached. Try again later."})
+
+
 @app.exception_handler(SQLAlchemyError)
 def persistence_error_handler(_request: Request, _exc: SQLAlchemyError) -> JSONResponse:
     return JSONResponse(status_code=503, content={"detail": "Unable to persist data in PostgreSQL."})
+
+
+@app.exception_handler(Exception)
+def upstream_error_handler(_request: Request, _exc: Exception) -> JSONResponse:
+    return JSONResponse(status_code=502, content={"detail": "Unable to fetch data."})
 
 
 @app.post(
@@ -66,19 +76,10 @@ def get_tickers(
     store: StoreDep,
 ) -> dict[str, TickerInfo]:
     symbol_list = list(dict.fromkeys(symbol.upper() for symbol in symbols))
-
     try:
         return get_tickers_info(symbol_list, store)
     except TickerNotFoundError as exc:
         raise HTTPException(status_code=404, detail=f"No data found for ticker {exc}.") from exc
-    except YFRateLimitError as exc:
-        raise HTTPException(
-            status_code=503, detail="Upstream rate limit reached. Try again later."
-        ) from exc
-    except SQLAlchemyError:
-        raise
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail="Unable to fetch ticker data.") from exc
 
 
 @app.get(
@@ -97,16 +98,7 @@ def list_instruments(
     offset: Annotated[int_range(ge=0, le=None), Query(description="Result offset; follow nextOffset")] = 0,
     limit: Annotated[int_range(le=250), Query(description="Maximum number of results")] = 250,
 ) -> InstrumentPage:
-    try:
-        return get_instruments(asset_class, offset=offset, limit=limit, store=store)
-    except YFRateLimitError as exc:
-        raise HTTPException(
-            status_code=503, detail="Upstream rate limit reached. Try again later."
-        ) from exc
-    except SQLAlchemyError:
-        raise
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail="Unable to fetch instruments.") from exc
+    return get_instruments(asset_class, offset=offset, limit=limit, store=store)
 
 
 @app.get(
@@ -119,16 +111,7 @@ def list_news(
     query: Annotated[string(), Query(description="News search query")] = "business",
     limit: Annotated[int_range(), Query(description="Maximum number of articles")] = 25,
 ) -> list[Article]:
-    try:
-        return search_news(query, limit=limit, store=store)
-    except YFRateLimitError as exc:
-        raise HTTPException(
-            status_code=503, detail="Upstream rate limit reached. Try again later."
-        ) from exc
-    except SQLAlchemyError:
-        raise
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail="Unable to fetch news.") from exc
+    return search_news(query, limit=limit, store=store)
 
 
 @app.get(
@@ -141,16 +124,7 @@ def get_ticker_news(
     store: StoreDep,
     limit: Annotated[int_range(), Query(description="Maximum number of articles")] = 10,
 ) -> list[Article]:
-    try:
-        return _get_ticker_news(symbol.upper(), limit=limit, store=store)
-    except YFRateLimitError as exc:
-        raise HTTPException(
-            status_code=503, detail="Upstream rate limit reached. Try again later."
-        ) from exc
-    except SQLAlchemyError:
-        raise
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail="Unable to fetch ticker news.") from exc
+    return _get_ticker_news(symbol.upper(), limit=limit, store=store)
 
 
 def main() -> None:

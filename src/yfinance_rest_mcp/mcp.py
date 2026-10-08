@@ -1,6 +1,7 @@
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
+from functools import wraps
 from typing import Annotated
 
 from mcp.server.mcpserver import Context, MCPServer
@@ -34,6 +35,23 @@ async def lifespan(_server: MCPServer) -> AsyncIterator[MCPState]:
 server = MCPServer("yfinance-rest-mcp", lifespan=lifespan)
 
 
+def handle_errors[**P, R](tool: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[R]]:
+    @wraps(tool)
+    async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+        try:
+            return await tool(*args, **kwargs)
+        except ToolError:
+            raise
+        except YFRateLimitError as exc:
+            raise ToolError("Upstream rate limit reached. Try again later.") from exc
+        except SQLAlchemyError as exc:
+            raise ToolError("Unable to persist data in PostgreSQL.") from exc
+        except Exception as exc:
+            raise ToolError("Unable to fetch data.") from exc
+
+    return wrapper
+
+
 @server.tool(
     description=(
         "Get basic information for 1–20 known ticker symbols. Symbols are trimmed, "
@@ -42,6 +60,7 @@ server = MCPServer("yfinance-rest-mcp", lifespan=lifespan)
     ),
     structured_output=True,
 )
+@handle_errors
 async def get_tickers(
     symbols: Annotated[list_of(TickerSymbol, max_length=20), Field(description="Ticker symbols")],
     ctx: Context[MCPState, None],
@@ -52,12 +71,6 @@ async def get_tickers(
         return await run_in_threadpool(get_tickers_info, symbol_list, store)
     except TickerNotFoundError as exc:
         raise ToolError(f"No data found for ticker {exc}.") from exc
-    except YFRateLimitError as exc:
-        raise ToolError("Upstream rate limit reached. Try again later.") from exc
-    except SQLAlchemyError as exc:
-        raise ToolError("Unable to access data in PostgreSQL.") from exc
-    except Exception as exc:
-        raise ToolError("Unable to fetch ticker data.") from exc
 
 
 def main() -> None:
