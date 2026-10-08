@@ -11,10 +11,15 @@ from sqlalchemy.exc import SQLAlchemyError
 from starlette.concurrency import run_in_threadpool
 from yfinance.exceptions import YFRateLimitError
 
-from .models import TickerInfo
-from .service import TickerNotFoundError, get_tickers_info
+from .models import Article, TickerInfo
+from .service import (
+    TickerNotFoundError,
+    get_ticker_news as _get_ticker_news,
+    get_tickers_info,
+    search_news as _search_news,
+)
 from .db.storage import PostgresStore, create_store
-from .validation import TickerSymbol, list_of
+from .validation import TickerSymbol, int_range, list_of, string
 
 
 @dataclass
@@ -53,11 +58,7 @@ def handle_errors[**P, R](tool: Callable[P, Awaitable[R]]) -> Callable[P, Awaita
 
 
 @server.tool(
-    description=(
-        "Get basic information for 1–20 known ticker symbols. Symbols are trimmed, "
-        "uppercased, and deduplicated. Returns a symbol-keyed object with name, exchange, "
-        "currency, latest available price, and priceTime (UTC source timestamp or null). "
-    ),
+    description="Get basic information for multiple tickers",
     structured_output=True,
 )
 @handle_errors
@@ -71,6 +72,34 @@ async def get_tickers(
         return await run_in_threadpool(get_tickers_info, symbol_list, store)
     except TickerNotFoundError as exc:
         raise ToolError(f"No data found for ticker {exc}.") from exc
+
+
+@server.tool(
+    description="Searches news articles.",
+    structured_output=True,
+)
+@handle_errors
+async def search_news(
+    ctx: Context[MCPState, None],
+    query: Annotated[string(), Field(description="News search query")] = "business",
+    limit: Annotated[int_range(), Field(description="Maximum number of articles")] = 25,
+) -> list[Article]:
+    store = ctx.request_context.lifespan_context.store
+    return await run_in_threadpool(_search_news, query, limit=limit, store=store)
+
+
+@server.tool(
+    description="Returns the latest news articles for a ticker symbol.",
+    structured_output=True,
+)
+@handle_errors
+async def get_ticker_news(
+    symbol: TickerSymbol,
+    ctx: Context[MCPState, None],
+    limit: Annotated[int_range(), Field(description="Maximum number of articles")] = 10,
+) -> list[Article]:
+    store = ctx.request_context.lifespan_context.store
+    return await run_in_threadpool(_get_ticker_news, symbol.upper(), limit=limit, store=store)
 
 
 def main() -> None:
