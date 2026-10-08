@@ -44,3 +44,16 @@ class InstrumentPage(BaseModel):
     total: int
     offset: int
     next_offset: int | None = Field(alias="nextOffset")
+
+
+class Article(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str | None = None
+    title: str | None = None
+    description: str | None = None
+    content: str | None = None
+    url: str | None = None
+    image: str | None = None
+    published_at: datetime | None = Field(default=None, alias="publishedAt")
+    source: str | None = None

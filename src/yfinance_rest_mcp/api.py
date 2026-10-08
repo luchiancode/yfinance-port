@@ -9,8 +9,14 @@ from sqlalchemy.exc import SQLAlchemyError
 from starlette.concurrency import run_in_threadpool
 from yfinance.exceptions import YFRateLimitError
 
-from .models import InstrumentClass, InstrumentPage, TickerInfo
-from .service import TickerNotFoundError, get_instruments, get_tickers_info
+from .models import Article, InstrumentClass, InstrumentPage, TickerInfo
+from .service import (
+    TickerNotFoundError,
+    get_instruments,
+    get_ticker_news as _get_ticker_news,
+    get_tickers_info,
+    search_news,
+)
 from .db.storage import PostgresStore, create_store
 from .validation import TickerSymbol
 
@@ -101,6 +107,50 @@ def list_instruments(
         raise
     except Exception as exc:
         raise HTTPException(status_code=502, detail="Unable to fetch instruments.") from exc
+
+
+@app.get(
+    "/news",
+    summary="Search news articles",
+    description="Searches news articles.",
+)
+def list_news(
+    store: StoreDep,
+    query: Annotated[str, Query(min_length=1, max_length=100, description="News search query")] = "business",
+    limit: Annotated[int, Query(ge=1, le=100, description="Maximum number of articles")] = 25,
+) -> list[Article]:
+    try:
+        return search_news(query, limit=limit, store=store)
+    except YFRateLimitError as exc:
+        raise HTTPException(
+            status_code=503, detail="Upstream rate limit reached. Try again later."
+        ) from exc
+    except SQLAlchemyError:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="Unable to fetch news.") from exc
+
+
+@app.get(
+    "/tickers/{symbol}/news",
+    summary="Get news articles for a ticker",
+    description="Returns the latest news articles for a ticker symbol.",
+)
+def get_ticker_news(
+    symbol: TickerSymbol,
+    store: StoreDep,
+    limit: Annotated[int, Query(ge=1, le=100, description="Maximum number of articles")] = 10,
+) -> list[Article]:
+    try:
+        return _get_ticker_news(symbol.upper(), limit=limit, store=store)
+    except YFRateLimitError as exc:
+        raise HTTPException(
+            status_code=503, detail="Upstream rate limit reached. Try again later."
+        ) from exc
+    except SQLAlchemyError:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="Unable to fetch ticker news.") from exc
 
 
 def main() -> None:

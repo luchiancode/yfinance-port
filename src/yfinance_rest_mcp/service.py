@@ -1,10 +1,12 @@
 from datetime import UTC, datetime, timedelta
 
-from .models import InstrumentClass, InstrumentPage, TickerInfo
+from .models import Article, InstrumentClass, InstrumentPage, TickerInfo
 from .db.repository import save_instruments, save_price
 from .sources.instrument_source import InstrumentSource
+from .sources.search_news_source import SearchNewsSource
 from .sources.source import Source
 from .sources.ticker_info_source import TickerInfoSource, TickerNotFoundError
+from .sources.ticker_news_source import TickerNewsSource
 from .db.storage import PostgresStore
 
 __all__ = [
@@ -12,7 +14,9 @@ __all__ = [
     "TickerNotFoundError",
     "get_instruments",
     "get_ticker_info",
+    "get_ticker_news",
     "get_tickers_info",
+    "search_news",
 ]
 
 PRICE_TTL = timedelta(minutes=2)
@@ -50,3 +54,25 @@ def get_tickers_info(
     symbols: list[str], store: PostgresStore | None = None,
 ) -> dict[str, TickerInfo]:
     return {symbol: get_ticker_info(symbol, store) for symbol in symbols}
+
+
+def get_ticker_news(
+    symbol: str, limit: int = 10,
+    store: PostgresStore | None = None,
+) -> list[Article]:
+    source: Source[list[Article]] = TickerNewsSource(symbol, limit, store)
+    articles = source.get_from_db()
+    if articles is not None:
+        return articles
+    return source.get_from_yfinance()
+
+
+def search_news(
+    query: str, limit: int = 8,
+    store: PostgresStore | None = None,
+) -> list[Article]:
+    source: Source[list[Article]] = SearchNewsSource(query, limit, store)
+    articles = source.get_from_db()
+    if articles is not None:
+        return articles
+    return source.get_from_yfinance()
