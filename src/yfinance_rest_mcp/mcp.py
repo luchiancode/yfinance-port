@@ -13,7 +13,7 @@ from yfinance.exceptions import YFRateLimitError
 from .models import TickerInfo
 from .service import TickerNotFoundError, get_tickers_info
 from .db.storage import PostgresStore, create_store
-from .validation import TickerSymbol
+from .validation import TickerSymbol, list_of
 
 
 @dataclass
@@ -43,9 +43,7 @@ server = MCPServer("yfinance-rest-mcp", lifespan=lifespan)
     structured_output=True,
 )
 async def get_tickers(
-    symbols: Annotated[
-        list[TickerSymbol], Field(min_length=1, max_length=20, description="Ticker symbols"),
-    ],
+    symbols: Annotated[list_of(TickerSymbol, max_length=20), Field(description="Ticker symbols")],
     ctx: Context[MCPState, None],
 ) -> dict[str, TickerInfo]:
     symbol_list = list(dict.fromkeys(symbol.upper() for symbol in symbols))

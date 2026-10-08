@@ -18,7 +18,7 @@ from .service import (
     search_news,
 )
 from .db.storage import PostgresStore, create_store
-from .validation import TickerSymbol
+from .validation import TickerSymbol, int_range, list_of, string
 
 
 @asynccontextmanager
@@ -60,8 +60,8 @@ def persistence_error_handler(_request: Request, _exc: SQLAlchemyError) -> JSONR
 )
 def get_tickers(
     symbols: Annotated[
-        list[TickerSymbol],
-        Body(min_length=1, max_length=20, description="Ticker symbols", examples=[["MSFT", "AAPL", "GOOG"]]),
+        list_of(TickerSymbol, max_length=20),
+        Body(description="Ticker symbols", examples=[["MSFT", "AAPL", "GOOG"]]),
     ],
     store: StoreDep,
 ) -> dict[str, TickerInfo]:
@@ -94,8 +94,8 @@ def list_instruments(
     asset_class: Annotated[
         InstrumentClass, Query(alias="assetClass", description="Instrument type"),
     ] = InstrumentClass.EQUITY,
-    offset: Annotated[int, Query(ge=0, description="Result offset; follow nextOffset")] = 0,
-    limit: Annotated[int, Query(ge=1, le=250, description="Maximum number of results")] = 250,
+    offset: Annotated[int_range(ge=0, le=None), Query(description="Result offset; follow nextOffset")] = 0,
+    limit: Annotated[int_range(le=250), Query(description="Maximum number of results")] = 250,
 ) -> InstrumentPage:
     try:
         return get_instruments(asset_class, offset=offset, limit=limit, store=store)
@@ -116,8 +116,8 @@ def list_instruments(
 )
 def list_news(
     store: StoreDep,
-    query: Annotated[str, Query(min_length=1, max_length=100, description="News search query")] = "business",
-    limit: Annotated[int, Query(ge=1, le=100, description="Maximum number of articles")] = 25,
+    query: Annotated[string(), Query(description="News search query")] = "business",
+    limit: Annotated[int_range(), Query(description="Maximum number of articles")] = 25,
 ) -> list[Article]:
     try:
         return search_news(query, limit=limit, store=store)
@@ -139,7 +139,7 @@ def list_news(
 def get_ticker_news(
     symbol: TickerSymbol,
     store: StoreDep,
-    limit: Annotated[int, Query(ge=1, le=100, description="Maximum number of articles")] = 10,
+    limit: Annotated[int_range(), Query(description="Maximum number of articles")] = 10,
 ) -> list[Article]:
     try:
         return _get_ticker_news(symbol.upper(), limit=limit, store=store)
