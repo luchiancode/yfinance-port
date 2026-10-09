@@ -1,4 +1,4 @@
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from datetime import UTC, datetime
 
 from sqlalchemy import func
@@ -18,11 +18,13 @@ def save_instruments(store: PostgresStore, items: Iterable[Instrument]) -> None:
     }
     if not rows:
         return
+
     statement = insert(InstrumentTable).values(list(rows.values()))
     statement = statement.on_conflict_do_update(
         index_elements=[InstrumentTable.symbol],
         set_={key: statement.excluded[key] for key in next(iter(rows.values())) if key != "symbol"},
     )
+
     with Session(store.engine) as session:
         session.execute(statement)
         session.commit()
@@ -39,10 +41,12 @@ def instruments_page(
             .offset(offset)
             .limit(limit)
         ).all()
+
         total = session.exec(
             select(func.count()).select_from(InstrumentTable)
             .where(InstrumentTable.asset_class == asset_class)
         ).one()
+
     return list(rows), total
 
 
@@ -62,8 +66,13 @@ def save_price(store: PostgresStore, record: TickerInfo) -> None:
         session.commit()
 
 
-def save_articles(store: PostgresStore, articles: Iterable[Article]) -> None:
+def save_articles(
+    store: PostgresStore,
+    articles: Iterable[Article],
+    embed: Callable[[dict[str, dict]], None] | None = None,
+) -> None:
     fetched_at = datetime.now(UTC)
+
     rows = {
         article.external_id: {
             **article.model_dump(exclude={"content"}),
@@ -72,10 +81,27 @@ def save_articles(store: PostgresStore, articles: Iterable[Article]) -> None:
         for article in articles
         if article.external_id is not None
     }
+
     if not rows:
         return
+
+    with Session(store.engine) as session:
+        existing = set(session.exec(
+            select(NewsArticle.external_id).where(NewsArticle.external_id.in_(rows))
+        ).all())
+
+    #check existing
+    rows = {key: row for key, row in rows.items() if key not in existing}
+    if not rows:
+        return
+    
+    #callback
+    if embed is not None:
+        embed(rows)
+
     statement = insert(NewsArticle).values(list(rows.values()))
     statement = statement.on_conflict_do_nothing(index_elements=[NewsArticle.external_id])
+    
     with Session(store.engine) as session:
         session.execute(statement)
         session.commit()

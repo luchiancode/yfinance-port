@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime
+from pgvector.sqlalchemy import Vector
+from sqlalchemy import Column, DateTime
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, SQLModel
 
@@ -45,6 +46,8 @@ class NewsArticle(SQLModel, table=True):
     image: str | None = None
     published_at: datetime | None = Field(default=None, sa_type=DateTime(timezone=True))
     source: str | None = None
+    embedding: list[float] | None = Field(default=None, sa_column=Column(Vector()))
+    embedding_model: str | None = None
     fetched_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC), sa_type=DateTime(timezone=True),
     )

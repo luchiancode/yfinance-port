@@ -2,6 +2,7 @@ from datetime import UTC, datetime, timedelta
 
 from .models import Article, InstrumentClass, InstrumentPage, TickerInfo
 from .db.repository import save_articles, save_instruments, save_price, stored_articles
+from .embedders.embedder import OpenRouterEmbedder
 from .sources.instrument_source import InstrumentSource
 from .sources.search_news_source import SearchNewsSource
 from .sources.source import Source
@@ -30,8 +31,10 @@ def get_instruments(
 ) -> InstrumentPage:
     source: Source[InstrumentPage] = InstrumentSource(asset_class, offset, limit, store)
     page = source.get_from_db()
+    
     if page is not None:
         return page
+        
     page = source.get_from_yfinance()
     if store is not None:
         save_instruments(store, page.items)
@@ -63,8 +66,9 @@ def get_ticker_news(
     store: PostgresStore | None = None,
 ) -> list[Article]:
     articles = TickerNewsSource(symbol, limit).get_from_yfinance()
+
     if store is not None:
-        save_articles(store, articles)
+        save_articles(store, articles, embed_articles)
     return articles
 
 
@@ -73,8 +77,9 @@ def search_news(
     store: PostgresStore | None = None,
 ) -> list[Article]:
     articles = SearchNewsSource(query, limit).get_from_yfinance()
+
     if store is not None:
-        save_articles(store, articles)
+        save_articles(store, articles, embed_articles)
     return articles
 
 
@@ -84,6 +89,7 @@ def search_news_by_keywords(
 ) -> list[Article]:
     articles: list[Article] = []
     seen: set[str] = set()
+
     for keyword in keywords:
         for article in search_news(keyword, limit=limit, store=store):
             key = article.external_id or article.url or article.title
@@ -91,6 +97,29 @@ def search_news_by_keywords(
                 seen.add(key)
                 articles.append(article)
     return articles[:limit]
+
+
+def embed_articles(rows: dict[str, dict]) -> None:
+    embedder = OpenRouterEmbedder.get()
+    if not embedder.enabled:
+        return
+
+    texts = [
+        "\n".join(part for part in (row["title"], row["description"]) if part)
+        for row in rows.values()
+    ]
+    try:
+        vectors = embedder.embed([text for text in texts if text])
+    except Exception:
+        return
+
+    vector_iter = iter(vectors)
+    
+    for row, text in zip(rows.values(), texts, strict=True):
+        if not text:
+            continue
+        row["embedding"] = next(vector_iter)
+        row["embedding_model"] = embedder.model
 
 
 def stored_news(
