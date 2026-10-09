@@ -17,6 +17,7 @@ from .service import (
     get_tickers_info,
     search_news as _search_news,
     search_news_by_keywords as _search_news_by_keywords,
+    stored_news as _stored_news,
 )
 from .db.storage import PostgresStore, create_store
 from .validation import TickerSymbol, int_range, list_of, string
@@ -126,6 +127,19 @@ def search_news_by_keywords(
     limit: Annotated[int_range(), Query(description="Maximum number of articles")] = 25,
 ) -> list[Article]:
     return _search_news_by_keywords(keywords, limit=limit, store=store)
+
+
+@app.get(
+    "/news/stored",
+    summary="Get stored news articles",
+    description="Returns persisted articles ordered by publishedAt descending.",
+)
+def get_stored_news(
+    store: StoreDep,
+    offset: Annotated[int_range(ge=0, le=None), Query(description="Result offset")] = 0,
+    limit: Annotated[int_range(), Query(description="Maximum number of articles")] = 100,
+) -> list[Article]:
+    return _stored_news(store, offset=offset, limit=limit)
 
 
 @app.get(

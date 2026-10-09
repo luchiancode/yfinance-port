@@ -3,6 +3,10 @@ from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field
 
+class InstrumentClass(StrEnum):
+    EQUITY = "EQUITY"
+    ETF = "ETF"
+    MUTUALFUND = "MUTUALFUND"
 
 class TickerInfo(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
@@ -17,13 +21,6 @@ class TickerInfo(BaseModel):
         alias="priceTime",
         description="UTC source timestamp for the regular-market price; null if unavailable.",
     )
-
-
-class InstrumentClass(StrEnum):
-    EQUITY = "EQUITY"
-    ETF = "ETF"
-    MUTUALFUND = "MUTUALFUND"
-
 
 class Instrument(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
@@ -49,7 +46,7 @@ class InstrumentPage(BaseModel):
 class Article(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
-    id: str | None = None
+    external_id: str | None = Field(default=None, alias="externalId")
     title: str | None = None
     description: str | None = None
     content: str | None = None

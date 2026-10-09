@@ -1,7 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
 from .models import Article, InstrumentClass, InstrumentPage, TickerInfo
-from .db.repository import save_instruments, save_price
+from .db.repository import save_articles, save_instruments, save_price, stored_articles
 from .sources.instrument_source import InstrumentSource
 from .sources.search_news_source import SearchNewsSource
 from .sources.source import Source
@@ -18,6 +18,7 @@ __all__ = [
     "get_tickers_info",
     "search_news",
     "search_news_by_keywords",
+    "stored_news",
 ]
 
 PRICE_TTL = timedelta(minutes=2)
@@ -61,22 +62,20 @@ def get_ticker_news(
     symbol: str, limit: int = 10,
     store: PostgresStore | None = None,
 ) -> list[Article]:
-    source: Source[list[Article]] = TickerNewsSource(symbol, limit, store)
-    articles = source.get_from_db()
-    if articles is not None:
-        return articles
-    return source.get_from_yfinance()
+    articles = TickerNewsSource(symbol, limit).get_from_yfinance()
+    if store is not None:
+        save_articles(store, articles)
+    return articles
 
 
 def search_news(
     query: str, limit: int = 8,
     store: PostgresStore | None = None,
 ) -> list[Article]:
-    source: Source[list[Article]] = SearchNewsSource(query, limit, store)
-    articles = source.get_from_db()
-    if articles is not None:
-        return articles
-    return source.get_from_yfinance()
+    articles = SearchNewsSource(query, limit).get_from_yfinance()
+    if store is not None:
+        save_articles(store, articles)
+    return articles
 
 
 def search_news_by_keywords(
@@ -87,8 +86,18 @@ def search_news_by_keywords(
     seen: set[str] = set()
     for keyword in keywords:
         for article in search_news(keyword, limit=limit, store=store):
-            key = article.id or article.url or article.title
+            key = article.external_id or article.url or article.title
             if key is not None and key not in seen:
                 seen.add(key)
                 articles.append(article)
     return articles[:limit]
+
+
+def stored_news(
+    store: PostgresStore | None, offset: int = 0, limit: int = 100,
+) -> list[Article]:
+    if store is None:
+        return []
+    return [
+        Article(**row.model_dump()) for row in stored_articles(store, offset, limit)
+    ]

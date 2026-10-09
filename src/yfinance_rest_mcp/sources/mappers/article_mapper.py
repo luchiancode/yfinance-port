@@ -42,7 +42,7 @@ class ArticleMapper(Mapper[dict, Article]):
         provider = content.get("provider") or {}
 
         return Article(
-            id=content.get("id") or item.get("uuid"),
+            external_id=content.get("id") or item.get("uuid"),
             title=title,
             description=content.get("summary"),
             url=url,

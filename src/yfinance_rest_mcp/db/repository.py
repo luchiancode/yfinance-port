@@ -5,9 +5,9 @@ from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import insert
 from sqlmodel import Session, select
 
-from ..models import Instrument, TickerInfo
+from ..models import Article, Instrument, TickerInfo
 from .storage import PostgresStore
-from .tables import Instrument as InstrumentTable, PriceSnapshot
+from .tables import Instrument as InstrumentTable, NewsArticle, PriceSnapshot
 
 
 def save_instruments(store: PostgresStore, items: Iterable[Instrument]) -> None:
@@ -60,3 +60,32 @@ def save_price(store: PostgresStore, record: TickerInfo) -> None:
     with Session(store.engine) as session:
         session.add(PriceSnapshot(**record.model_dump()))
         session.commit()
+
+
+def save_articles(store: PostgresStore, articles: Iterable[Article]) -> None:
+    fetched_at = datetime.now(UTC)
+    rows = {
+        article.external_id: {
+            **article.model_dump(exclude={"content"}),
+            "fetched_at": fetched_at,
+        }
+        for article in articles
+        if article.external_id is not None
+    }
+    if not rows:
+        return
+    statement = insert(NewsArticle).values(list(rows.values()))
+    statement = statement.on_conflict_do_nothing(index_elements=[NewsArticle.external_id])
+    with Session(store.engine) as session:
+        session.execute(statement)
+        session.commit()
+
+
+def stored_articles(store: PostgresStore, offset: int, limit: int) -> list[NewsArticle]:
+    with Session(store.engine) as session:
+        return list(session.exec(
+            select(NewsArticle)
+            .order_by(NewsArticle.published_at.desc().nullslast(), NewsArticle.external_id)
+            .offset(offset)
+            .limit(limit)
+        ).all())
