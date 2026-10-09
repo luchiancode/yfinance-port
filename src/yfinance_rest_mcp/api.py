@@ -12,10 +12,11 @@ from yfinance.exceptions import YFRateLimitError
 from .models import Article, InstrumentClass, InstrumentPage, TickerInfo
 from .service import (
     TickerNotFoundError,
-    get_instruments,
+    get_instruments as _get_instruments,
     get_ticker_news as _get_ticker_news,
     get_tickers_info,
-    search_news,
+    search_news as _search_news,
+    search_news_by_keywords as _search_news_by_keywords,
 )
 from .db.storage import PostgresStore, create_store
 from .validation import TickerSymbol, int_range, list_of, string
@@ -90,7 +91,7 @@ def get_tickers(
         "Ordered by size descending: market cap for stocks, net assets for funds. "
     ),
 )
-def list_instruments(
+def get_instruments(
     store: StoreDep,
     asset_class: Annotated[
         InstrumentClass, Query(alias="assetClass", description="Instrument type"),
@@ -98,20 +99,33 @@ def list_instruments(
     offset: Annotated[int_range(ge=0, le=None), Query(description="Result offset; follow nextOffset")] = 0,
     limit: Annotated[int_range(le=250), Query(description="Maximum number of results")] = 250,
 ) -> InstrumentPage:
-    return get_instruments(asset_class, offset=offset, limit=limit, store=store)
+    return _get_instruments(asset_class, offset=offset, limit=limit, store=store)
 
 
 @app.get(
     "/news",
-    summary="Search news articles",
+    summary="Search news articles by query",
     description="Searches news articles.",
 )
-def list_news(
+def search_news_by_query(
     store: StoreDep,
-    query: Annotated[string(), Query(description="News search query")] = "business",
+    query: Annotated[string(max_length=500), Query(description="News search query")] = "business",
     limit: Annotated[int_range(), Query(description="Maximum number of articles")] = 25,
 ) -> list[Article]:
-    return search_news(query, limit=limit, store=store)
+    return _search_news(query, limit=limit, store=store)
+
+
+@app.get(
+    "/news/keywords",
+    summary="Search news articles by keywords",
+    description="Searches news articles for each keyword.",
+)
+def search_news_by_keywords(
+    store: StoreDep,
+    keywords: Annotated[list_of(string(), max_length=20), Query(description="News search keywords")],
+    limit: Annotated[int_range(), Query(description="Maximum number of articles")] = 25,
+) -> list[Article]:
+    return _search_news_by_keywords(keywords, limit=limit, store=store)
 
 
 @app.get(

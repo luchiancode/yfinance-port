@@ -17,6 +17,7 @@ __all__ = [
     "get_ticker_news",
     "get_tickers_info",
     "search_news",
+    "search_news_by_keywords",
 ]
 
 PRICE_TTL = timedelta(minutes=2)
@@ -76,3 +77,18 @@ def search_news(
     if articles is not None:
         return articles
     return source.get_from_yfinance()
+
+
+def search_news_by_keywords(
+    keywords: list[str], limit: int = 25,
+    store: PostgresStore | None = None,
+) -> list[Article]:
+    articles: list[Article] = []
+    seen: set[str] = set()
+    for keyword in keywords:
+        for article in search_news(keyword, limit=limit, store=store):
+            key = article.id or article.url or article.title
+            if key is not None and key not in seen:
+                seen.add(key)
+                articles.append(article)
+    return articles[:limit]

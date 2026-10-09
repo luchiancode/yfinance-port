@@ -17,6 +17,7 @@ from .service import (
     get_ticker_news as _get_ticker_news,
     get_tickers_info,
     search_news as _search_news,
+    search_news_by_keywords as _search_news_by_keywords,
 )
 from .db.storage import PostgresStore, create_store
 from .validation import TickerSymbol, int_range, list_of, string
@@ -58,7 +59,11 @@ def handle_errors[**P, R](tool: Callable[P, Awaitable[R]]) -> Callable[P, Awaita
 
 
 @server.tool(
-    description="Get basic information for multiple tickers",
+    description=(
+        "Get basic information for 1–20 known ticker symbols."
+        "Returns a symbol-keyed object with name, exchange, "
+        "currency, latest available price, and priceTime. "
+    ),
     structured_output=True,
 )
 @handle_errors
@@ -75,7 +80,11 @@ async def get_tickers(
 
 
 @server.tool(
-    description="Searches news articles.",
+    description=(
+        "Search news articles acrossy. "
+        "Returns a list of articles with id, title, description, "
+        "url, image, publishedAt, and source."
+    ),
     structured_output=True,
 )
 @handle_errors
@@ -89,7 +98,29 @@ async def search_news(
 
 
 @server.tool(
-    description="Returns the latest news articles for a ticker symbol.",
+    description=(
+        "Searches news articles for each keyword."
+        "Returns a list of articles with id, title, description, "
+        "url, image, publishedAt, and source."
+    ),
+    structured_output=True,
+)
+@handle_errors
+async def search_news_by_keywords(
+    ctx: Context[MCPState, None],
+    keywords: Annotated[list_of(string(), max_length=20), Field(description="News search keywords")],
+    limit: Annotated[int_range(), Field(description="Maximum number of articles")] = 25,
+) -> list[Article]:
+    store = ctx.request_context.lifespan_context.store
+    return await run_in_threadpool(_search_news_by_keywords, keywords, limit=limit, store=store)
+
+
+@server.tool(
+    description=(
+        "Get the latest news articles for a ticker symbol. "
+        "Returns a list of articles with id, title, description, "
+        "url, image, publishedAt, and source."
+    ),
     structured_output=True,
 )
 @handle_errors
