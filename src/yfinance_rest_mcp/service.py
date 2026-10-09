@@ -2,7 +2,7 @@ from datetime import UTC, datetime, timedelta
 
 from .models import Article, InstrumentClass, InstrumentPage, TickerInfo
 from .db.repository import save_articles, save_instruments, save_price, stored_articles
-from .embedders.embedder import OpenRouterEmbedder
+from .embedders.openrouter_embedder import OpenRouterEmbedder
 from .sources.instrument_source import InstrumentSource
 from .sources.search_news_source import SearchNewsSource
 from .sources.source import Source
@@ -47,11 +47,15 @@ def get_ticker_info(
     now = datetime.now(UTC)
     source: Source[TickerInfo] = TickerInfoSource(symbol, store, since=now - PRICE_TTL)
     result = source.get_from_db()
+
     if result is not None:
         return result
+
     result = source.get_from_yfinance()
+
     if store is not None:
         save_price(store, result)
+
     return result
 
 
@@ -80,6 +84,7 @@ def search_news(
 
     if store is not None:
         save_articles(store, articles, embed_articles)
+
     return articles
 
 
@@ -96,6 +101,7 @@ def search_news_by_keywords(
             if key is not None and key not in seen:
                 seen.add(key)
                 articles.append(article)
+                
     return articles[:limit]
 
 
@@ -114,7 +120,6 @@ def embed_articles(rows: dict[str, dict]) -> None:
         return
 
     vector_iter = iter(vectors)
-    
     for row, text in zip(rows.values(), texts, strict=True):
         if not text:
             continue

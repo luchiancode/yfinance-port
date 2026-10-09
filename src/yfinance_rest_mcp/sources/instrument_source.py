@@ -20,7 +20,9 @@ class InstrumentSource(Source[InstrumentPage]):
     def get_from_db(self) -> InstrumentPage | None:
         if self.store is None:
             return None
+
         rows, total = instruments_page(self.store, self.asset_class.value, self.offset, self.limit)
+        
         if len(rows) == self.limit or (rows and self.offset + len(rows) >= total):
             next_offset = self.offset + len(rows)
             return InstrumentPage(
@@ -43,19 +45,24 @@ class InstrumentSource(Source[InstrumentPage]):
             InstrumentClass.ETF: yf.ETFQuery,
             InstrumentClass.MUTUALFUND: yf.FundQuery,
         }[asset_class]
+
         template = query_type("gte", ["intradayprice", 0])
+
         exchanges = sorted({
             exchange
             for group in template.valid_values["exchange"].values()
             for exchange in group if exchange
         })
+
         query = query_type("is-in", ["exchange", *exchanges])
+
         response = yf.screen(
             query, offset=offset, size=limit, sortField=sort_field, sortAsc=False,
         )
 
         quotes = response["quotes"]
         total = response["total"]
+
         if not quotes and offset < total:
             raise ValueError("Received an empty page before the end of the results.")
 
@@ -63,11 +70,13 @@ class InstrumentSource(Source[InstrumentPage]):
         for quote in quotes:
             if not quote.get("symbol"):
                 continue
+
             name = quote.get("longName") or quote.get("shortName")
             aliases = list(dict.fromkeys(
                 alias for alias in (quote.get("longName"), quote.get("shortName"))
                 if alias and alias != name and alias != quote["symbol"]
             ))
+
             items.append(Instrument(
                 symbol=quote["symbol"],
                 name=name,
@@ -79,6 +88,7 @@ class InstrumentSource(Source[InstrumentPage]):
             ))
 
         next_offset = offset + len(quotes)
+        
         return InstrumentPage(
             items=items,
             total=total,
